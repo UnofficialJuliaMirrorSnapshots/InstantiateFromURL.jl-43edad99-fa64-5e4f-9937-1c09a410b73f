@@ -48,9 +48,11 @@ function github_project(reponame; # e.g., "QuantEcon/quantecon-notebooks-jl"
         @info "$(project_file) activated." 
 
         # Display depending on results
-        project_requested = split(reponame, "/")[2]
+        project_requested = replace(split(reponame, "/")[2], ".jl" => "") # strip out ".jl" if it exists
         if project_name == project_requested && project_version != version && project_version != "NA"
             @info "$project_name $project_version activated, $version requested" 
+        elseif project_name != project_requested && project_name != "NA"
+            @info "Project name $project_name activated, $project_requested requested."
         else 
             @info "Project name is $project_name, version is $project_version"
         end
@@ -65,7 +67,8 @@ function github_project(reponame; # e.g., "QuantEcon/quantecon-notebooks-jl"
 
     # if we're satisfied with the project activated, just display 
     # this case catches most scenarios
-    if is_project_activated && !force 
+    # NOTE: Need the third check in cases where we've deleted the project file after activating 
+    if is_project_activated && !force && isfile(Base.active_project())
         displayproj()
         return 
     end 
@@ -86,7 +89,6 @@ function github_project(reponame; # e.g., "QuantEcon/quantecon-notebooks-jl"
     # try/catch on Manifest because it isn't always required
     try @suppress Base.download(url_manifest, joinpath(pwd(), "Manifest.toml"));
     catch e
-        @info "Can't download Manifest."
     end 
     
     Pkg.activate(pwd())
