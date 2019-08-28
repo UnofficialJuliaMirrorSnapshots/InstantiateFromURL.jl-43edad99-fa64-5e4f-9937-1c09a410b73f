@@ -3,7 +3,7 @@
 # Without versions for now (so that we don't force downgrades, etc.)... can get version information easily enough, though.
 function packages_to_default_environment() # no arg, since it operates on the activated environment
     if (Base.active_project() == Base.load_path_expand("@v#.#"))
-        @info "No project activated."
+        printstyled("No project activated.\n", color = :cyan)
         return 
     end
 
@@ -37,31 +37,33 @@ function github_project(reponame; # e.g., "QuantEcon/quantecon-notebooks-jl"
     url_manifest = (path == "") ? join(["https://raw.githubusercontent.com", reponame, url_version, "Manifest.toml"], "/") : join(["https://raw.githubusercontent.com", reponame, url_version, path, "Manifest.toml"], "/")
 
     # unified display for all cases
-    function displayproj()
+    function display_proj()
+        ctx = Pkg.Types.Context();
+        project_file = ctx.env.project_file;
+        printstyled(Markdown.parse("\e[1mActivated\e[0m $project_file"), color = :green)
+    end
+
+    function display_info()
         ctx = Pkg.Types.Context();
         project_information = parsefile(ctx.env.project_file);
-        project_file = ctx.env.project_file;
         project_version = haskey(project_information, "version") ? project_information["version"] : "NA"
         project_name = haskey(project_information, "name") ? project_information["name"] : "NA"
         
-        # Always display this 
-        @info "$(project_file) activated." 
-
         # Display depending on results
         project_requested = replace(split(reponame, "/")[2], ".jl" => "") # strip out ".jl" if it exists
         if project_name == project_requested && project_version != version && project_version != "NA"
-            @info "$project_name $project_version activated, $version requested" 
+            printstyled(Markdown.parse("\e[1mInfo\e[0m $project_name $project_version activated, $version requested"), color = :cyan)
         elseif project_name != project_requested && project_name != "NA"
-            @info "Project name $project_name activated, $project_requested requested."
+            printstyled(Markdown.parse("\e[1mInfo\e[0m Project name $project_name activated, $project_requested requested."), color = :cyan)
         else 
-            @info "Project name is $project_name, version is $project_version"
+            printstyled(Markdown.parse("\e[1mInfo\e[0m Project name is $project_name, version is $project_version"), color = :cyan)
         end
     end 
 
     # use a local project if it exists and we don't have it set to force
     if !is_project_local && does_local_project_exist && !force
         Pkg.activate(pwd());
-        displayproj()
+        display_info()
         return 
     end 
 
@@ -69,13 +71,14 @@ function github_project(reponame; # e.g., "QuantEcon/quantecon-notebooks-jl"
     # this case catches most scenarios
     # NOTE: Need the third check in cases where we've deleted the project file after activating 
     if is_project_activated && !force && isfile(Base.active_project())
-        displayproj()
+        display_proj()
+        display_info()
         return 
     end 
 
     # at this point, need to do downloading/overwriting/etc.
     if does_local_project_exist 
-        @info "local TOML exists; removing now."
+        printstyled(Markdown.parse("\e[1mInfo\e[0m Local TOML exists; removing now.\n"), color = :cyan)
         rm(joinpath(pwd(), "Project.toml"), force = true) # force = true so non-existing path doesn't error
         rm(joinpath(pwd(), "Manifest.toml"), force = true)
     end 
@@ -94,6 +97,6 @@ function github_project(reponame; # e.g., "QuantEcon/quantecon-notebooks-jl"
     Pkg.activate(pwd())
     Pkg.instantiate()
     pkg"precompile"
-    displayproj()
+    display_info()
     return # return nothing
 end
